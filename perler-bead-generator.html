@@ -230,6 +230,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
     <div class="btn-row">
       <button class="btn btn-success" id="exportPng">💾 保存图片</button>
+      <button class="btn btn-success" id="exportPdf">📄 导出 PDF</button>
       <button class="btn btn-outline" id="resetBtn">🔄 重新选择</button>
     </div>
   </div>
@@ -727,6 +728,83 @@ $('exportPng').addEventListener('click', () => {
   link.download = `拼豆图纸_${lastResult.w}x${lastResult.h}.png`;
   link.href = resultCanvas.toDataURL('image/png');
   link.click();
+});
+
+// Export PDF (print-friendly)
+$('exportPdf').addEventListener('click', () => {
+  if (!lastResult) return;
+  const { grid, w, h, stats } = lastResult;
+  const sorted = Object.entries(stats).sort((a,b) => b[1]-a[1]);
+  const total = Object.values(stats).reduce((a,b) => a+b, 0);
+  const colLabel = n => { let s=''; while(n>=0){s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26)-1;} return s; };
+
+  // Build grid HTML
+  let gridHTML = '<table class="bead-grid"><tr><th class="corner"></th>';
+  for (let x = 0; x < w; x++) gridHTML += `<th>${colLabel(x)}</th>`;
+  gridHTML += '</tr>';
+  for (let y = 0; y < h; y++) {
+    gridHTML += `<tr><th>${y+1}</th>`;
+    for (let x = 0; x < w; x++) {
+      const c = grid[y][x];
+      gridHTML += `<td style="background:${c.hex};color:${getLuminance(...c.rgb)>0.5?'#000':'#fff'}">${c.code}</td>`;
+    }
+    gridHTML += '</tr>';
+  }
+  gridHTML += '</table>';
+
+  // Build legend HTML
+  let legendHTML = '<table class="legend"><tr><th>色块</th><th>色号</th><th>数量</th></tr>';
+  for (const [code, count] of sorted) {
+    const c = PALETTE.find(p => p.code === code);
+    legendHTML += `<tr><td class="swatch" style="background:${c?.hex||'#888'}"></td><td>${code}</td><td>${count}</td></tr>`;
+  }
+  legendHTML += `<tr class="total-row"><td></td><td>合计</td><td>${total}</td></tr></table>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>拼豆图纸 ${w}×${h}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;padding:20px;color:#222}
+  h1{font-size:18px;margin-bottom:4px}
+  .meta{font-size:12px;color:#666;margin-bottom:14px}
+  .section-title{font-size:14px;font-weight:700;margin:16px 0 8px;border-bottom:2px solid #333;padding-bottom:4px}
+  .bead-grid{border-collapse:collapse;font-size:7px;line-height:1}
+  .bead-grid th{background:#eee;color:#333;font-weight:600;border:1px solid #ccc;padding:1px 3px;min-width:14px}
+  .bead-grid td{width:16px;height:16px;border:1px solid #ccc;text-align:center;font-weight:600;padding:0}
+  .bead-grid .corner{background:#ddd}
+  .legend{border-collapse:collapse;font-size:12px;margin-top:6px}
+  .legend th{background:#f0f0f0;padding:4px 14px;border:1px solid #ccc;text-align:left}
+  .legend td{padding:3px 14px;border:1px solid #ccc}
+  .legend .swatch{width:24px;height:18px;padding:0}
+  .legend .total-row{font-weight:700;background:#f8f8f8}
+  @media print{
+    body{padding:10px}
+    .bead-grid td{width:14px;height:14px;font-size:6px}
+    .section-title{page-break-after:avoid}
+    .legend{page-break-inside:avoid}
+  }
+  @page{size:auto;margin:10mm}
+</style>
+</head>
+<body>
+<h1>拼豆图纸 MARD 221</h1>
+<div class="meta">尺寸: ${w}×${h} ｜ 底板: ${boardSize.value}cm ｜ 豆径: ${beadSize.value}mm ｜ 颜色: ${sorted.length} 种 ｜ 总计: ${total} 颗</div>
+
+<div class="section-title">图纸</div>
+${gridHTML}
+
+<div class="section-title">材料清单</div>
+${legendHTML}
+
+<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
 });
 
 // Reset
