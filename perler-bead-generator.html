@@ -538,25 +538,48 @@ function drawResult() {
   const showL = showLabels.checked;
   const showG = showGrid.checked;
 
-  // Calculate cell size based on screen width
-  const wrapW = canvasWrap.clientWidth - 4;
+  // Calculate cell size based on screen width (reserve space for coordinate labels)
+  const labelMargin = 24;
+  const wrapW = canvasWrap.clientWidth - 4 - labelMargin;
   let cellSize = Math.max(8, Math.min(40, Math.floor(wrapW / w)));
   cellSize = Math.round(cellSize * currentScale);
 
   const canvas = resultCanvas;
   const ctx = canvas.getContext('2d');
-  canvas.width = w * cellSize;
-  canvas.height = h * cellSize;
+  canvas.width = w * cellSize + labelMargin;
+  canvas.height = h * cellSize + labelMargin;
 
   // Background
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Draw cells
+  // Coordinate label style
+  ctx.font = 'bold 10px sans-serif';
+  ctx.fillStyle = '#888';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Column labels (A, B, C, ... Z, AA, AB...)
+  const colLabel = n => {
+    let s = '';
+    while (n >= 0) { s = String.fromCharCode(65 + n % 26) + s; n = Math.floor(n / 26) - 1; }
+    return s;
+  };
+  for (let x = 0; x < w; x++) {
+    ctx.fillText(colLabel(x), labelMargin + x * cellSize + cellSize / 2, labelMargin / 2);
+  }
+
+  // Row labels (1, 2, 3, ...)
+  ctx.textAlign = 'right';
+  for (let y = 0; y < h; y++) {
+    ctx.fillText(y + 1, labelMargin - 4, labelMargin + y * cellSize + cellSize / 2);
+  }
+
+  // Draw cells (offset by labelMargin)
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const cell = grid[y][x];
-      const px = x * cellSize, py = y * cellSize;
+      const px = labelMargin + x * cellSize, py = labelMargin + y * cellSize;
 
       // Cell fill
       ctx.fillStyle = cell.hex;
@@ -573,18 +596,18 @@ function drawResult() {
     }
   }
 
-  // Grid lines
+  // Grid lines (offset by labelMargin)
   if (showG && cellSize >= 4) {
     ctx.strokeStyle = 'rgba(255,255,255,0.15)';
     ctx.lineWidth = 0.5;
     ctx.beginPath();
     for (let x = 0; x <= w; x++) {
-      ctx.moveTo(x * cellSize, 0);
-      ctx.lineTo(x * cellSize, h * cellSize);
+      ctx.moveTo(labelMargin + x * cellSize, labelMargin);
+      ctx.lineTo(labelMargin + x * cellSize, labelMargin + h * cellSize);
     }
     for (let y = 0; y <= h; y++) {
-      ctx.moveTo(0, y * cellSize);
-      ctx.lineTo(w * cellSize, y * cellSize);
+      ctx.moveTo(labelMargin, labelMargin + y * cellSize);
+      ctx.lineTo(labelMargin + w * cellSize, labelMargin + y * cellSize);
     }
     ctx.stroke();
   }
